@@ -1,0 +1,214 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Frame settings</title>
+<script src="defaults.js"></script>
+<style>
+  :root{--bg:#121417;--card:#1d2025;--line:#2c3036;--text:#eef0f3;--mut:#9aa1ab;--acc:#4f9cf9;--ok:#3fb27f;--bad:#e5534b}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--text);font-family:sans-serif;font-size:18px}
+  body{display:flex;flex-direction:column}
+  #scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  header{flex:none;z-index:5;display:flex;align-items:center;gap:12px;padding:14px 20px;background:#0c0d10;border-bottom:1px solid var(--line)}
+  header h1{font-size:22px;margin:0;flex:1}
+  button{font:inherit;border:0;border-radius:12px;padding:12px 18px;background:#2b3038;color:var(--text)}
+  button:active{filter:brightness(1.3)}
+  button.pri{background:var(--acc);color:#fff;font-weight:600}
+  button.sm{padding:8px 12px;font-size:16px}
+  main{max-width:900px;margin:0 auto;padding:16px 16px 60px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:0 0 16px}
+  section h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 12px}
+  .row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+  .row:first-of-type{border-top:0}
+  .row label{flex:1;min-width:180px}
+  .row label.sw{flex:none;min-width:0}
+  .row small{display:block;color:var(--mut);font-size:14px;margin-top:3px}
+  input[type=text],input[type=url],input[type=time],select{font:inherit;background:#0f1114;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  input[type=url]{width:100%}
+  select{min-width:150px}
+  .sw{position:relative;width:62px;height:34px;flex:none}
+  .sw input{opacity:0;width:0;height:0}
+  .sw span{position:absolute;inset:0;background:#3a3f47;border-radius:34px;transition:.2s}
+  .sw span:before{content:"";position:absolute;width:26px;height:26px;left:4px;top:4px;background:#fff;border-radius:50%;transition:.2s}
+  .sw input:checked+span{background:var(--acc)}
+  .sw input:checked+span:before{transform:translateX(28px)}
+  .album{display:flex;gap:8px;align-items:center;margin:0 0 10px}
+  .album input{flex:1}
+  .st{font-size:14px;color:var(--mut);margin:-4px 0 12px 4px}
+  .st.ok{color:var(--ok)} .st.bad{color:var(--bad)}
+  .res{margin-top:8px}
+  .res button{display:block;width:100%;text-align:left;margin:6px 0;background:#262a31}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000c;padding:12px 20px;border-radius:12px;display:none;z-index:9}
+  .mut{color:var(--mut);font-size:15px}
+  .hidden{display:none}
+</style></head>
+<body>
+<header>
+  <button id="back">‹ Back</button>
+  <h1>Frame settings</h1>
+  <button class="pri" id="save">Save</button>
+</header>
+<div id="scroll"><main>
+  <section>
+    <h2>Photo albums</h2>
+    <div class="mut" style="margin-bottom:12px">Google Photos → open the album → Share → Copy link. Paste one link per box. Albums must be shared by link.</div>
+    <div id="albums"></div>
+    <button class="sm" id="addAlbum">+ Add album</button>
+    <div class="row" style="margin-top:10px">
+      <label>Check albums for new photos every</label>
+      <select id="refreshMin"><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="180">3 hours</option><option value="720">12 hours</option></select>
+    </div>
+    <div class="row"><label>Status<small id="syncInfo">–</small></label><button class="sm" id="syncNow">Refresh now</button></div>
+  </section>
+
+  <section>
+    <h2>Slideshow</h2>
+    <div class="row"><label>Show each photo for</label>
+      <select id="intervalSec"><option value="10">10 seconds</option><option value="15">15 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select></div>
+    <div class="row"><label>Shuffle<small>Off = album order</small></label><label class="sw"><input type="checkbox" id="shuffle"><span></span></label></div>
+    <div class="row"><label>Zoom effect (Ken Burns)<small>Slow zoom in and drift on each photo</small></label><label class="sw"><input type="checkbox" id="kenburns"><span></span></label></div>
+    <div class="row"><label>Fill the screen<small>Crops the edges a little so most photos fill the screen. Panoramas, squares and very tall photos are always shown whole.</small></label><label class="sw"><input type="checkbox" id="fill"><span></span></label></div>
+    <div class="row"><label>Portrait photos side by side<small>Shows two upright photos together, picking ones taken around the same time</small></label><label class="sw"><input type="checkbox" id="pairPortraits"><span></span></label></div>
+    <div class="row"><label>Fade between photos</label>
+      <select id="transitionSec"><option value="0">Off</option><option value="0.8">Quick</option><option value="1.5">Normal</option><option value="3">Slow</option></select></div>
+    <div class="row"><label>Include videos<small>Shown with a ▶ button, play when tapped (muted)</small></label><label class="sw"><input type="checkbox" id="showVideos"><span></span></label></div>
+  </section>
+
+  <section>
+    <h2>On screen</h2>
+    <div class="row"><label>Date the photo was taken</label><label class="sw"><input type="checkbox" id="photoDate"><span></span></label></div>
+    <div class="row"><label>Clock</label><label class="sw"><input type="checkbox" id="clock"><span></span></label></div>
+    <div class="row"><label>24-hour clock</label><label class="sw"><input type="checkbox" id="clock24"><span></span></label></div>
+    <div class="row"><label>Weather</label><label class="sw"><input type="checkbox" id="wOn"><span></span></label></div>
+    <div class="row"><label>Weather location<small id="wName">–</small></label>
+      <input type="text" id="wQ" placeholder="Suburb or city" style="flex:1;min-width:200px"><button class="sm" id="wFind">Search</button></div>
+    <div class="res" id="wRes"></div>
+    <div class="row"><label>Temperature</label>
+      <select id="wUnit"><option value="c">°C</option><option value="f">°F</option></select></div>
+  </section>
+
+  <section>
+    <h2>Night mode</h2>
+    <div class="row"><label>Dim the screen at night<small>Screen goes black during these hours. Tap to wake it for 5 minutes.</small></label><label class="sw"><input type="checkbox" id="nOn"><span></span></label></div>
+    <div class="row"><label>From</label><input type="time" id="nFrom"><label style="flex:none;min-width:0">to</label><input type="time" id="nTo"></div>
+  </section>
+
+  <section>
+    <h2>Remote settings</h2>
+    <div class="row"><label>Edit settings from your phone or computer<small>Anyone on your home Wi‑Fi can open this page and change settings. Restart, Turn off and screen controls still only work on the frame.</small></label><label class="sw"><input type="checkbox" id="remote"><span></span></label></div>
+    <div class="mut" id="remoteUrl"></div>
+  </section>
+
+  <section>
+    <h2>About</h2>
+    <div class="mut" id="about">–</div>
+  </section>
+  <div style="text-align:right"><button class="pri" id="save2">Save</button></div>
+</main></div>
+<div id="toast"></div>
+<script>
+var C=null, INFRAME=(window.parent!==window && window.parent.closeSettings), ONFRAME=!!INFRAME;
+function $(i){return document.getElementById(i);}
+function toast(t){ var e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(e._t); e._t=setTimeout(function(){e.style.display='none';},2500); }
+function get(q,cb){ var x=new XMLHttpRequest(); x.open('GET','/cgi-bin/ctl?'+q+'&t='+Date.now()); x.onload=function(){try{cb&&cb(JSON.parse(x.responseText));}catch(e){}}; x.send(); }
+
+function albumRow(url){
+  var d=document.createElement('div'); d.className='album';
+  d.innerHTML='<input type="url" placeholder="https://photos.app.goo.gl/…"><button class="sm">Remove</button>';
+  d.querySelector('input').value=url||'';
+  d.querySelector('button').onclick=function(){ d.parentNode.removeChild(d); };
+  $('albums').appendChild(d);
+}
+function setSel(id,v){ var s=$(id), best=null; for(var i=0;i<s.options.length;i++){ if(String(s.options[i].value)===String(v)) best=i; }
+  if(best===null){ var o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); best=s.options.length-1; } s.selectedIndex=best; }
+
+function render(){
+  $('albums').innerHTML=''; (C.albums.length?C.albums:['']).forEach(albumRow);
+  setSel('refreshMin',C.refreshMin); setSel('intervalSec',C.intervalSec); setSel('transitionSec',C.transitionSec);
+  ['shuffle','kenburns','fill','pairPortraits','showVideos','photoDate','clock','clock24'].forEach(function(k){ $(k).checked=!!C[k]; });
+  $('wOn').checked=!!C.weather.on; $('wName').textContent=C.weather.name||'(not set)'; setSel('wUnit',C.weather.unit||'c');
+  $('nOn').checked=!!C.night.on; $('nFrom').value=C.night.from; $('nTo').value=C.night.to;
+  $('remote').checked=!!C.remote;
+}
+function collect(){
+  var a=[]; [].forEach.call($('albums').querySelectorAll('input'),function(i){ var v=i.value.trim(); if(v) a.push(v); });
+  C.albums=a; C.refreshMin=+$('refreshMin').value; C.intervalSec=+$('intervalSec').value; C.transitionSec=+$('transitionSec').value;
+  ['shuffle','kenburns','fill','pairPortraits','showVideos','photoDate','clock','clock24'].forEach(function(k){ C[k]=$(k).checked; });
+  C.weather.on=$('wOn').checked; C.weather.unit=$('wUnit').value;
+  C.night={on:$('nOn').checked, from:$('nFrom').value||'22:00', to:$('nTo').value||'07:00'};
+  C.remote=$('remote').checked;
+  return C;
+}
+function validAlbum(u){ return /^https:\/\/(photos\.app\.goo\.gl|photos\.google\.com|goo\.gl)\//.test(u); }
+
+var savedAlbums='';
+function save(then){
+  collect();
+  var bad=C.albums.filter(function(u){return !validAlbum(u);});
+  if(bad.length){ toast('Not a Google Photos link: '+bad[0].slice(0,40)); return; }
+  if(!C.albums.length){ toast('Add at least one album link'); return; }
+  var x=new XMLHttpRequest(); x.open('POST','/cgi-bin/ctl?a=setcfg'); x.setRequestHeader('Content-Type','application/json');
+  x.onload=function(){ var r={}; try{r=JSON.parse(x.responseText);}catch(e){}
+    if(!r.ok){ toast('Could not save'); return; }
+    var changed=JSON.stringify(C.albums)!==savedAlbums; savedAlbums=JSON.stringify(C.albums);
+    if(changed) get('a=sync');
+    toast(changed?'Saved — reading albums…':'Saved'); then&&then(); };
+  x.onerror=function(){ toast('Could not save'); };
+  x.send(JSON.stringify(C));
+}
+
+function ago(s){ var d=Math.round(Date.now()/1000-s); if(d<90) return 'just now'; if(d<5400) return Math.round(d/60)+' min ago'; return Math.round(d/3600)+' h ago'; }
+function status(){
+  get('a=status',function(r){
+    var s=r.sync||{}, t=r.syncing?'Reading albums… ':'';
+    t+= s.total!=null ? (s.total+' photos & videos'+(s.time?(' · updated '+ago(s.time)):'')) : 'not synced yet';
+    $('syncInfo').textContent=t;
+    // per-album result under each link
+    [].forEach.call(document.querySelectorAll('.st'),function(e){e.parentNode.removeChild(e);});
+    (s.albums||[]).forEach(function(a){
+      [].forEach.call($('albums').querySelectorAll('.album'),function(row){
+        if(row.querySelector('input').value.trim()!==a.url) return;
+        var e=document.createElement('div'); e.className='st '+(a.ok?'ok':'bad');
+        e.textContent=a.ok?('✓ '+(a.title||'Album')+' — '+a.count+' items'):('✗ '+(a.err||'failed'));
+        row.parentNode.insertBefore(e,row.nextSibling);
+      });
+    });
+    $('about').innerHTML='';
+    $('about').appendChild(document.createTextNode('Wi‑Fi '+(r.ssid||'?')+' · IP '+(r.ip||'?')));
+    $('remoteUrl').textContent = r.ip ? ('Address: http://'+r.ip+':8080/settings.html'+(C.remote?'':'  (after you turn this on and press Save)')) : '';
+    if(r.syncing) setTimeout(status,3000);
+  });
+}
+
+/* weather location search (Open-Meteo geocoding, no key) */
+function findPlace(){
+  var q=$('wQ').value.trim(); if(!q) return;
+  var x=new XMLHttpRequest();
+  x.open('GET','https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name='+encodeURIComponent(q.split(',')[0]));
+  x.onload=function(){ var r={}; try{r=JSON.parse(x.responseText);}catch(e){}
+    var box=$('wRes'); box.innerHTML='';
+    if(!r.results||!r.results.length){ box.textContent='No places found — try just the suburb or city name.'; return; }
+    r.results.forEach(function(p){
+      var name=[p.name,p.admin1,p.country].filter(Boolean).join(', ');
+      var b=document.createElement('button'); b.textContent=name;
+      b.onclick=function(){ C.weather.name=[p.name,p.admin1].filter(Boolean).join(', '); C.weather.lat=+p.latitude.toFixed(3);
+        C.weather.lon=+p.longitude.toFixed(3); C.weather.tz=p.timezone||C.weather.tz; $('wName').textContent=C.weather.name; box.innerHTML=''; $('wQ').value='';
+        toast('Location set — press Save'); };
+      box.appendChild(b);
+    });
+  };
+  x.send();
+}
+
+$('addAlbum').onclick=function(){ albumRow(''); };
+$('syncNow').onclick=function(){ get('a=sync',function(){ toast('Reading albums…'); setTimeout(status,1500); }); };
+$('wFind').onclick=findPlace;
+$('wQ').addEventListener('keydown',function(e){ if(e.key==='Enter') findPlace(); });
+$('save').onclick=function(){ save(function(){ if(INFRAME) setTimeout(function(){ window.parent.closeSettings(true); },900); else setTimeout(status,1500); }); };
+$('save2').onclick=function(){ $('save').onclick(); };
+$('back').onclick=function(){ if(INFRAME) window.parent.closeSettings(false); else history.length>1?history.back():toast('Close this tab when done'); };
+if(!ONFRAME) $('back').classList.add('hidden');
+
+loadCfg(function(c){ C=c; savedAlbums=JSON.stringify(C.albums); render(); status(); });
+</script>
+</body></html>

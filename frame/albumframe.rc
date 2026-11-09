@@ -1,0 +1,11 @@
+# AlbumFrame: Google Photos shared-album slideshow helper (sync + local web server)
+service albumframe /system/bin/sh /data/albumframe/run.sh
+    class late_start
+    user root
+    group root inet
+    seclabel u:r:su:s0
+    disabled
+    oneshot
+
+on property:sys.boot_completed=1
+    start albumframe

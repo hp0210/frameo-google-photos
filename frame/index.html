@@ -1,0 +1,377 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="referrer" content="no-referrer"><!-- Google video servers reject the localhost referrer -->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="defaults.js"></script>
+<title>AlbumFrame</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:sans-serif;-webkit-user-select:none;user-select:none}
+  .slide{position:absolute;inset:0;opacity:0;transition:opacity 1.5s ease}
+  .slide.on{opacity:1}
+  .bg{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(30px) brightness(.55)}
+  .fg{position:absolute;inset:0;background-size:contain;background-repeat:no-repeat;background-position:center}
+  /* one photo fills the screen, or two portrait photos side by side */
+  .pane{position:absolute;top:0;bottom:0;overflow:hidden}
+  .pane.full{left:0;right:0}
+  .pane.l{left:0;right:calc(50% + 3px)}
+  .pane.r{right:0;left:calc(50% + 3px)}
+  #clock{position:absolute;right:28px;top:18px;color:#fff;text-align:right;text-shadow:0 2px 8px rgba(0,0,0,.6);z-index:5}
+  #clock .t{font-size:64px;font-weight:600;line-height:1}
+  #clock .d{font-size:26px;margin-top:6px}
+  #msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:24px}
+  #wx{font-size:26px;margin-top:8px;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+  #wx .ic{font-size:30px}
+  #wx .hl{font-size:18px;opacity:.85}
+  #cap{position:absolute;left:14px;bottom:14px;z-index:5;color:#fff;background:rgba(0,0,0,.38);
+       border-radius:14px;padding:8px 14px;font-size:20px;opacity:0;transition:opacity 1s ease}
+  #cap.on,#cap2.on{opacity:1}
+  #cap2{position:absolute;left:calc(50% + 17px);bottom:14px;z-index:5;color:#fff;background:rgba(0,0,0,.38);
+       border-radius:14px;padding:8px 14px;font-size:20px;opacity:0;transition:opacity 1s ease}
+  #cap2 .ago{font-size:15px;opacity:.8;margin-left:8px}
+  #cap .ago{font-size:15px;opacity:.8;margin-left:8px}
+  /* video: play button + player */
+  #play{position:absolute;left:50%;top:50%;width:132px;height:132px;margin:-66px 0 0 -66px;z-index:6;border-radius:50%;
+        background:rgba(0,0,0,.45);border:4px solid rgba(255,255,255,.9);display:none;align-items:center;justify-content:center;
+        box-shadow:0 4px 24px rgba(0,0,0,.4)}
+  #play.on{display:flex}
+  #play:active{background:rgba(0,0,0,.7)}
+  #play svg{margin-left:10px}
+  #play .len{position:absolute;bottom:-38px;left:0;right:0;text-align:center;color:#fff;font-size:20px;text-shadow:0 2px 6px #000}
+  #vwrap{position:absolute;inset:0;z-index:8;background:#000;display:none;align-items:center;justify-content:center}
+  #vwrap.on{display:flex}
+  #vwrap video{width:100%;height:100%;object-fit:contain;background:#000}
+  #vwrap .hint{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#fff;opacity:.6;font-size:16px}
+  #vwrap .load{position:absolute;color:#aaa;font-size:22px}
+  /* Ken Burns: slow zoom + drift on the photo layer */
+  .fg.kb{animation-name:kb;animation-timing-function:linear;animation-fill-mode:both}
+  @keyframes kb{from{transform:scale(var(--s0)) translate(var(--x0),var(--y0))}
+                to{transform:scale(var(--s1)) translate(var(--x1),var(--y1))}}
+
+  /* tap menu */
+  #menu{position:absolute;left:0;right:0;bottom:0;z-index:10;padding:22px 28px 26px;
+        background:linear-gradient(transparent,rgba(0,0,0,.85) 30%);color:#fff;
+        transform:translateY(110%);transition:transform .3s ease}
+  #menu.open{transform:none}
+  #menu .row{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap}
+  #menu button{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:14px;
+        font-size:20px;padding:16px 20px;min-width:118px;display:flex;flex-direction:column;align-items:center;gap:6px}
+  #menu button:active{background:rgba(255,255,255,.3)}
+  #menu button .i{font-size:30px;line-height:1}
+  #menu button.warn{background:rgba(220,60,60,.35)}
+  #menu .bright{display:flex;align-items:center;gap:14px;justify-content:center;margin:0 0 18px;font-size:20px}
+  #menu input[type=range]{width:420px;height:36px}
+  #menu .info{text-align:center;font-size:15px;opacity:.7;margin-top:14px}
+  #confirm{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center}
+  #confirm.open{display:flex}
+  #confirm .box{background:#222;color:#fff;border-radius:18px;padding:30px 34px;text-align:center;max-width:560px}
+  #confirm .box p{font-size:24px;margin:0 0 8px}
+  #confirm .box small{display:block;font-size:17px;opacity:.75;margin-bottom:24px}
+  #confirm button{font-size:22px;border:0;border-radius:12px;padding:14px 28px;margin:0 8px}
+  #confirm .yes{background:#d64545;color:#fff}
+  #confirm .no{background:#444;color:#fff}
+  #bye{position:absolute;inset:0;z-index:30;background:#000;color:#ddd;display:none;align-items:center;justify-content:center;
+       flex-direction:column;font-size:26px;text-align:center}
+  #bye.open{display:flex}
+  #night{position:absolute;inset:0;z-index:25;background:#000;display:none}
+  #night.on{display:block}
+  #setf{position:absolute;inset:0;z-index:40;border:0;width:100%;height:100%;background:#121417}
+</style></head>
+<body>
+<div id="msg">Loading photos…</div>
+<div class="slide" id="a"><div class="bg"></div><div class="fg"></div></div>
+<div class="slide" id="b"><div class="bg"></div><div class="fg"></div></div>
+<div id="clock"><div class="t"></div><div class="d"></div><div id="wx"></div></div>
+<div id="cap"></div><div id="cap2"></div>
+<div id="play"><svg width="56" height="56" viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z" fill="#fff"/></svg><div class="len"></div></div>
+<div id="vwrap"><div class="load">Loading video…</div>
+  <div class="hint">Tap to stop</div></div>
+
+<div id="menu">
+  <div class="bright">🔅 <input id="br" type="range" min="10" max="255" step="1"> 🔆</div>
+  <div class="row">
+    <button data-act="prev"><span class="i">⏮</span>Previous</button>
+    <button data-act="next"><span class="i">⏭</span>Next</button>
+    <button data-act="wifi"><span class="i">📶</span>Wi‑Fi</button>
+    <button data-act="frame"><span class="i">🖼️</span>Frame settings</button>
+    <button data-act="settings"><span class="i">⚙️</span>Android</button>
+    <button data-act="reboot" class="warn"><span class="i">🔄</span>Restart</button>
+    <button data-act="off" class="warn"><span class="i"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg></span>Turn off</button>
+    <button data-act="close"><span class="i">✕</span>Close</button>
+  </div>
+  <div class="info" id="info">In Wi‑Fi / Settings: hold two fingers on the screen for 2 seconds to come back here.</div>
+</div>
+
+<div id="confirm"><div class="box"><p id="cq"></p><small id="cs"></small>
+  <button class="no" id="cno">Cancel</button><button class="yes" id="cyes">Yes</button></div></div>
+<div id="bye"><div id="byeT"></div></div>
+<div id="night"></div>
+
+<script>
+var CFG={interval:20000, shuffle:true, clock:true, clock24:false, preload:3, listRefresh:10*60*1000, menuHide:20000,
+  kenburns:true, fill:true, pair:true, photoDate:true, showVideos:true, transitionSec:1.5, night:{on:false},
+  weather:{on:true, lat:null, lon:null, tz:'auto', unit:'c', every:30*60*1000}};
+var CFGJSON='';
+function applyCfg(c){   // saved settings (settings.html) -> runtime CFG
+  CFG.interval=Math.max(5,c.intervalSec||20)*1000; CFG.shuffle=!!c.shuffle; CFG.clock=!!c.clock; CFG.clock24=!!c.clock24;
+  CFG.kenburns=!!c.kenburns; CFG.fill=c.fill!==false; CFG.pair=c.pairPortraits!==false; CFG.photoDate=!!c.photoDate; CFG.showVideos=c.showVideos!==false;
+  CFG.transitionSec=+c.transitionSec; CFG.night=c.night||{on:false};
+  var w=c.weather||{}; CFG.weather.on=!!w.on; CFG.weather.lat=w.lat; CFG.weather.lon=w.lon; CFG.weather.tz=w.tz||'auto'; CFG.weather.unit=w.unit||'c';
+  var st=$('cfgstyle'); if(!st){ st=document.createElement('style'); st.id='cfgstyle'; document.head.appendChild(st); }
+  st.textContent='.slide{transition:opacity '+CFG.transitionSec+'s ease}';
+  $('wx').style.display=CFG.weather.on?'':'none';
+  $('clock').style.display=CFG.clock?'':'none';
+  if(!CFG.kenburns) [].forEach.call(document.querySelectorAll('.fg'),function(f){ f.classList.remove('kb'); });
+}
+/* re-read settings and apply them in place (no page reload: ImmichFrame crashes on any navigation) */
+function reloadCfg(){
+  loadCfg(function(c){
+    CFGJSON=JSON.stringify(c); applyCfg(c);
+    updated=0; loadList(function(){ next(); });
+    weather(); tick();
+  });
+}
+var list=[], order=[], pos=0, cur='a', updated=0, hist=[], timer=null, menuTimer=null;
+
+function $(id){return document.getElementById(id);}
+function ctl(q,cb){ var x=new XMLHttpRequest(); x.open('GET','/cgi-bin/ctl?'+q+'&t='+Date.now());
+  x.onload=function(){ try{cb&&cb(JSON.parse(x.responseText));}catch(e){} }; x.send(); }
+
+function loadList(cb){
+  var s=document.createElement('script');
+  s.src='photos.js?'+Date.now();
+  s.onload=function(){ document.head.removeChild(s);
+    if(window.PHOTOS && window.PHOTOS_UPDATED!==updated){ updated=window.PHOTOS_UPDATED; list=window.PHOTOS.filter(function(e){ return CFG.showVideos || !isVid(e); }); reorder(); }
+    cb&&cb(); };
+  s.onerror=function(){ document.head.removeChild(s); cb&&cb(); };
+  document.head.appendChild(s);
+}
+function reorder(){
+  order=list.slice();
+  if(CFG.shuffle) for(var i=order.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=order[i];order[i]=order[j];order[j]=t;}
+  if(location.hash==='#testvideo'){ for(var k=0;k<order.length;k++) if(isVid(order[k])){ var v=order.splice(k,1)[0]; order.unshift(v); break; } }
+  pos=0;
+}
+/* entries are "url" (old) or [baseUrl, takenMs, tzOffsetMs, w, h, videoMs] */
+function isVid(e){ return !!e && typeof e!=='string' && e[5]>0; }
+function ratio(e){ return (typeof e!=='string' && e[3] && e[4]) ? e[3]/e[4] : 0; }
+/* landscape: 1280 wide (enough to fill the screen); portrait: 800 wide (enough for a half-screen pane) */
+function U(e){ if(typeof e==='string') return e; var r=ratio(e);
+  return e[0]+(r && r<1.15 ? '=w800-h1200' : '=w1280-h1280')+(isVid(e)?'-no':''); }
+/* fill (crop) the box when that cuts at most 22% of the photo; otherwise show it whole on the blurred background */
+function fills(e, box){ var r=ratio(e); if(!CFG.fill || !r) return false; return 1-Math.min(r,box)/Math.max(r,box) <= 0.22; }
+function pairable(e){ var r=ratio(e); return !isVid(e) && r>0 && r<1.15; }
+var shown=null, playing=false;
+/* a slide is [photo] or [portrait, portrait] */
+function display(items){
+  var n=items.length, ok=0, bad=false;
+  items.forEach(function(e){ var img=new Image();
+    img.onload=function(){ if(++ok===n && !bad) put(items); };
+    img.onerror=function(){ if(!bad){ bad=true; setTimeout(show, 2000); } };
+    img.src=U(e); });
+}
+function put(items){
+    var nxt=cur==='a'?'b':'a', el=$(nxt), two=items.length===2;
+    var box=(two ? innerWidth/2-3 : innerWidth)/innerHeight;
+    el.innerHTML='<div class="bg"></div>';
+    el.firstChild.style.backgroundImage='url("'+U(items[0])+'")';
+    items.forEach(function(e,k){
+      var p=document.createElement('div'), fg=document.createElement('div'), f=fills(e,box);
+      p.className='pane '+(two?(k?'r':'l'):'full'); fg.className='fg';
+      fg.style.backgroundImage='url("'+U(e)+'")';
+      fg.style.backgroundSize=f?'cover':'contain';
+      fg.style.backgroundPosition=f?'center 40%':'center';   // keep heads in when cropping top/bottom
+      p.appendChild(fg); el.appendChild(p);
+      if(CFG.kenburns) kenburns(fg, f);
+    });
+    el.classList.add('on'); $(cur).classList.remove('on'); cur=nxt;
+    var e=items[0]; caption(items); shown=two?null:e;
+    if(isVid(e)){ var s=Math.round(e[5]/1000); $('play').querySelector('.len').textContent=Math.floor(s/60)+':'+('0'+s%60).slice(-2);
+      $('play').classList.add('on'); } else $('play').classList.remove('on');
+}
+function show(){
+  if(!order.length){ $('msg').textContent=updated?'No photos found. Check the album link in Frame settings.':'No photos yet. Tap the screen, then Frame settings, to add a Google Photos album link.'; $('msg').style.display='flex'; return; }
+  $('msg').style.display='none';
+  if(pos>=order.length) reorder();
+  var e=order[pos++], items=[e];
+  if(CFG.pair && pairable(e)){
+    // partner: the upcoming portrait taken closest in time (same day/event looks best together)
+    var best=-1, bd=Infinity;
+    for(var j=pos;j<order.length && j<pos+300;j++) if(pairable(order[j])){
+      var d=Math.abs((order[j][1]||0)-(e[1]||0)); if(d<bd){ bd=d; best=j; } }
+    if(best>=0){ var p=order.splice(best,1)[0]; items=(p[1]||0)<(e[1]||0)?[p,e]:[e,p]; }   // older on the left
+  }
+  hist.push(items); if(hist.length>50) hist.shift();
+  display(items); preload();
+}
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function kenburns(fg, filled){
+  // zoom in only: start at the full picture, end slightly closer; drift stays inside the zoomed area so no edges show
+  var s0=1.0, s1=filled?rnd(1.08,1.12):1.06, m=(s1-1)/2/s1*100*0.8;
+  var x0='0%', y0='0%', x1=rnd(-m,m)+'%', y1=rnd(-m,m)+'%';
+  fg.classList.remove('kb'); void fg.offsetWidth;
+  fg.style.setProperty('--s0',s0); fg.style.setProperty('--s1',s1);
+  fg.style.setProperty('--x0',x0); fg.style.setProperty('--y0',y0);
+  fg.style.setProperty('--x1',x1); fg.style.setProperty('--y1',y1);
+  fg.style.animationDuration=(CFG.interval+3000)+'ms';
+  fg.classList.add('kb');
+}
+/* date label per photo: one for a single photo, one on each half for a portrait pair */
+function caption(items){
+  capOne($('cap'), items[0]);
+  capOne($('cap2'), items.length===2 ? items[1] : null);
+}
+function capOne(c, e){
+  if(!e || !CFG.photoDate || typeof e==='string' || !e[1]){ c.classList.remove('on'); return; }
+  var t=new Date(e[1]+(e[2]||0));            // capture time in the photo's own local time
+  var txt=t.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+  var now=new Date(), days=Math.floor((now-e[1])/864e5), ago='';
+  var sameDay=t.getUTCDate()===now.getDate() && t.getUTCMonth()===now.getMonth();
+  var yrs=now.getFullYear()-t.getUTCFullYear();
+  if(sameDay && yrs>0) ago=yrs===1?'1 year ago today':yrs+' years ago today';
+  else if(days<1) ago='today'; else if(days<2) ago='yesterday'; else if(days<31) ago=days+' days ago';
+  else if(days<365){ var m=Math.max(1,Math.round(days/30.4)); ago=m===1?'1 month ago':m+' months ago'; }
+  else { var y=Math.floor(days/365.25); ago=y===1?'1 year ago':y+' years ago'; }
+  c.innerHTML=''; c.appendChild(document.createTextNode(txt));
+  var s=document.createElement('span'); s.className='ago'; s.textContent=ago; c.appendChild(s);
+  c.classList.add('on');
+}
+/* weather: Open-Meteo, no API key */
+var WMO={0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',56:'🌧️',57:'🌧️',61:'🌦️',63:'🌧️',65:'🌧️',
+  66:'🌧️',67:'🌧️',71:'🌨️',73:'🌨️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'};
+function weather(){
+  var w=CFG.weather; if(!w.on || w.lat==null || w.lon==null){ $('wx').innerHTML=''; return; }
+  var x=new XMLHttpRequest();
+  x.open('GET','https://api.open-meteo.com/v1/forecast?latitude='+w.lat+'&longitude='+w.lon+
+    '&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone='+encodeURIComponent(w.tz)+(w.unit==='f'?'&temperature_unit=fahrenheit':''));
+  x.onload=function(){ try{
+    var r=JSON.parse(x.responseText), c=r.current, ic=WMO[c.weather_code]||'';
+    if(!c.is_day && (c.weather_code<=1)) ic='🌙';
+    $('wx').innerHTML='<span class="ic"></span><span class="tp"></span><span class="hl"></span>';
+    $('wx').querySelector('.ic').textContent=ic;
+    $('wx').querySelector('.tp').textContent=Math.round(c.temperature_2m)+'°';
+    $('wx').querySelector('.hl').textContent=Math.round(r.daily.temperature_2m_max[0])+'° / '+Math.round(r.daily.temperature_2m_min[0])+'°';
+  }catch(e){} };
+  x.send();
+}
+function prev(){ if(hist.length<2) return; hist.pop(); display(hist[hist.length-1]); restart(); }
+function next(){ show(); restart(); }
+function restart(){ clearInterval(timer); timer=setInterval(show, CFG.interval); }
+var pre=[];
+function preload(){ pre=[]; for(var k=0;k<CFG.preload && pos+k<order.length;k++){ var p=new Image(); p.src=U(order[pos+k]); pre.push(p); } }
+
+function tick(){
+  var c=$('clock'); nightCheck(); if(!CFG.clock) return;
+  var n=new Date();
+  c.querySelector('.t').textContent=n.toLocaleTimeString([], {hour:CFG.clock24?'2-digit':'numeric',minute:'2-digit',hour12:!CFG.clock24});
+  nightCheck();
+  c.querySelector('.d').textContent=n.toLocaleDateString([], {weekday:'short',month:'short',day:'numeric'});
+}
+
+/* ---- menu ---- */
+function openMenu(){
+  $('menu').classList.add('open'); bumpMenu();
+  ctl('a=status', function(r){ $('br').value=r.bright;
+    $('info').textContent=(r.ssid?('Wi‑Fi '+r.ssid+' · '):'')+(r.ip?('IP '+r.ip+' · '):'')+
+      'Hold two fingers on the screen for 2 s to return here from Wi‑Fi / Settings.'; });
+}
+function closeMenu(){ $('menu').classList.remove('open'); clearTimeout(menuTimer); }
+function bumpMenu(){ clearTimeout(menuTimer); menuTimer=setTimeout(closeMenu, CFG.menuHide); }
+function ask(q, sub, yes){
+  $('cq').textContent=q; $('cs').textContent=sub; $('confirm').classList.add('open');
+  $('cyes').onclick=function(){ $('confirm').classList.remove('open'); yes(); };
+  $('cno').onclick=function(){ $('confirm').classList.remove('open'); bumpMenu(); };
+}
+function bye(t){ closeMenu(); $('byeT').textContent=t; $('bye').classList.add('open'); }
+
+/* ---- video (only when the play button is tapped) ---- */
+function dbg(m){ ctl('a=log&m='+encodeURIComponent(m)); }
+function playVideo(e){
+  // the frame has no speaker: always muted. A fresh <video> per play (muted+autoplay set before src)
+  // is what reliably starts in this WebView; try 720p, then 360p, then give up and move on.
+  playing=true; clearInterval(timer); closeMenu();
+  $('play').classList.remove('on'); $('vwrap').classList.add('on'); $('vwrap').querySelector('.load').style.display='block';
+  tryVideo(e, ['=m22','=m18'], 0);
+}
+function tryVideo(e, q, i){
+  if(!playing) return;
+  if(i>=q.length){ dbg('video gave up'); stopVideo(true); return; }
+  var old=$('vid'); if(old){ old.pause(); old.removeAttribute('src'); old.load(); old.parentNode.removeChild(old); }
+  var v=document.createElement('video'); v.id='vid';
+  v.muted=true; v.defaultMuted=true; v.autoplay=true; v.playsInline=true;
+  v.setAttribute('muted',''); v.setAttribute('autoplay',''); v.setAttribute('playsinline','');
+  v.poster=U(e);
+  v.onplaying=function(){ clearTimeout(vwd); $('vwrap').querySelector('.load').style.display='none'; };
+  v.onended=function(){ stopVideo(true); };
+  v.onerror=function(){ dbg('error '+(v.error&&v.error.code)+' '+q[i]); clearTimeout(vwd); tryVideo(e, q, i+1); };
+  v.src=e[0]+q[i];
+  $('vwrap').insertBefore(v, $('vwrap').querySelector('.hint'));
+  clearTimeout(vwd);
+  vwd=setTimeout(function(){ if(playing && v.currentTime===0){ dbg('stalled rs='+v.readyState+' ns='+v.networkState+' '+q[i]); tryVideo(e, q, i+1); } }, 12000);
+}
+var vwd=null;
+function stopVideo(advance){
+  clearTimeout(vwd); var v=$('vid');
+  if(v){ v.pause(); v.removeAttribute('src'); v.load(); v.parentNode.removeChild(v); }
+  $('vwrap').classList.remove('on'); playing=false;
+  if(advance) next(); else { restart(); if(isVid(shown)) $('play').classList.add('on'); }
+}
+
+document.addEventListener('click', function(e){
+  if(e.target.id==='night'){ wakeUntil=Date.now()+5*60*1000; nightCheck(); return; }
+  if(playing){ stopVideo(false); return; }
+  if(e.target.closest('#play')){ if(isVid(shown)) playVideo(shown); return; }
+  var b=e.target.closest('button'); if(b && b.dataset.act){ act(b.dataset.act); return; }
+  if(e.target.closest('#menu')||e.target.closest('#confirm')){ bumpMenu(); return; }
+  if($('menu').classList.contains('open')) closeMenu(); else openMenu();
+});
+$('br').addEventListener('input', function(){ bumpMenu(); ctl('a=bright&v='+this.value); });
+
+function act(a){
+  bumpMenu();
+  if(a==='close') closeMenu();
+  else if(a==='next') next();
+  else if(a==='prev') prev();
+  else if(a==='wifi'||a==='settings'){ closeMenu(); ctl('a='+a); }
+  else if(a==='frame'){ openSettings(); }
+  else if(a==='reboot') ask('Restart the frame?','It will be back in about a minute.', function(){ bye('Restarting…'); ctl('a=reboot'); });
+  else if(a==='off') ask('Turn off the frame?','When the screen goes black it is safe to unplug. Unplug and plug the power back in to turn it on.',
+                         function(){ bye('Shutting down… wait until the screen goes black before unplugging.'); ctl('a=off'); });
+}
+
+/* ---- frame settings: shown in an overlay (ImmichFrame sends real page changes to an external browser) ---- */
+var inSettings=false;
+function openSettings(){
+  closeMenu(); inSettings=true; clearInterval(timer);
+  var f=document.createElement('iframe'); f.id='setf'; f.src='settings.html?t='+Date.now(); document.body.appendChild(f);
+}
+window.closeSettings=function(saved){
+  var f=$('setf'); if(f) f.parentNode.removeChild(f); inSettings=false;
+  if(saved) reloadCfg(); else restart();
+};
+
+/* ---- night mode: black screen + lowest backlight during the set hours; tap wakes for 5 min ---- */
+var wakeUntil=0, isNight=false, dayBright=null;
+function mins(hm){ var p=String(hm||'0:0').split(':'); return (+p[0])*60+(+p[1]||0); }
+function inNight(){ var n=CFG.night; if(!n||!n.on) return false;
+  var d=new Date(), m=d.getHours()*60+d.getMinutes(), f=mins(n.from), t=mins(n.to);
+  return f<=t ? (m>=f && m<t) : (m>=f || m<t); }
+function nightCheck(){
+  var want=inNight() && Date.now()>wakeUntil;
+  if(want===isNight) return; isNight=want;
+  $('night').classList.toggle('on', want);
+  if(want){ ctl('a=status',function(r){ dayBright=r.bright; ctl('a=bright&v=1'); }); clearInterval(timer); }
+  else { if(dayBright!==null) ctl('a=bright&v='+dayBright); restart(); }
+}
+
+/* start: load saved settings, then the photo list; reload the page if settings change (e.g. edited from a phone) */
+loadCfg(function(c){
+  CFGJSON=JSON.stringify(c); applyCfg(c);
+  loadList(function(){ show(); restart(); });
+  setInterval(loadList, CFG.listRefresh);
+  setInterval(function(){ if(!order.length) loadList(function(){ if(order.length) next(); }); }, 30000);   // first album sync after install
+  tick(); setInterval(tick, 15000);
+  weather(); setInterval(weather, CFG.weather.every);
+  setInterval(function(){ if(playing||inSettings) return; loadCfg(function(n){ if(JSON.stringify(n)!==CFGJSON) reloadCfg(); }); }, 60000);
+});
+</script>
+</body></html>

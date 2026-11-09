@@ -1,0 +1,10 @@
+# downloaded third-party files (fetched by install.sh)
+downloads/
+# frame backups: personal, large, never commit
+backup-*/
+*.img
+*.tgz
+*.apk
+# local settings
+config.json
+.DS_Store
