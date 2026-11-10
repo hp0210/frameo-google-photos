@@ -145,11 +145,20 @@ function loadList(cb){
   s.onerror=function(){ document.head.removeChild(s); cb&&cb(); };
   document.head.appendChild(s);
 }
+/* each photo is shown once per round: "seen" remembers what this round already showed (kept across restarts),
+   so the 30-minute album refresh only reshuffles what is still unseen instead of starting over */
+var seen={}, seenN=0;
+function key(e){ return (typeof e==='string'?e:e[0]).slice(-20); }
+function loadSeen(){ try{ (localStorage.getItem('af_seen')||'').split(' ').forEach(function(k){ if(k) seen[k]=1; }); }catch(x){} }
+function saveSeen(){ try{ localStorage.setItem('af_seen', Object.keys(seen).join(' ')); }catch(x){} }
 function reorder(){
-  order=list.slice();
+  var have={}; list.forEach(function(e){ have[key(e)]=1; });
+  for(var k in seen) if(!have[k]) delete seen[k];          // forget photos removed from the album
+  order=list.filter(function(e){ return !seen[key(e)]; });
+  if(!order.length){ seen={}; order=list.slice(); }      // whole album shown: start a new round
   if(CFG.shuffle) for(var i=order.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=order[i];order[i]=order[j];order[j]=t;}
-  if(location.hash==='#testvideo'){ for(var k=0;k<order.length;k++) if(isVid(order[k])){ var v=order.splice(k,1)[0]; order.unshift(v); break; } }
-  pos=0;
+  if(location.hash==='#testvideo'){ for(var k2=0;k2<order.length;k2++) if(isVid(order[k2])){ var v=order.splice(k2,1)[0]; order.unshift(v); break; } }
+  pos=0; saveSeen();
 }
 /* entries are "url" (old) or [baseUrl, takenMs, tzOffsetMs, w, h, videoMs] */
 function isVid(e){ return !!e && typeof e!=='string' && e[5]>0; }
@@ -201,6 +210,7 @@ function show(){
     if(best>=0){ var p=order.splice(best,1)[0]; items=(p[1]||0)<(e[1]||0)?[p,e]:[e,p]; }   // older on the left
   }
   hist.push(items); if(hist.length>50) hist.shift();
+  items.forEach(function(x){ seen[key(x)]=1; }); if(++seenN%10===0) saveSeen();
   display(items); preload();
 }
 function rnd(a,b){ return a+Math.random()*(b-a); }
@@ -366,7 +376,7 @@ function nightCheck(){
 /* start: load saved settings, then the photo list; reload the page if settings change (e.g. edited from a phone) */
 loadCfg(function(c){
   CFGJSON=JSON.stringify(c); applyCfg(c);
-  loadList(function(){ show(); restart(); });
+  loadSeen(); loadList(function(){ show(); restart(); });
   setInterval(loadList, CFG.listRefresh);
   setInterval(function(){ if(!order.length) loadList(function(){ if(order.length) next(); }); }, 30000);   // first album sync after install
   tick(); setInterval(tick, 15000);
