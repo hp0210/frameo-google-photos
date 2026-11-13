@@ -361,18 +361,21 @@ window.closeSettings=function(saved){
   if(saved) reloadCfg(); else restart();
 };
 
-/* ---- night mode: black screen + lowest backlight during the set hours; tap wakes for 5 min ---- */
-var wakeUntil=0, isNight=false, dayBright=null;
+/* ---- night mode: black screen + backlight off during the set hours; tap wakes for 5 min ---- */
+var wakeUntil=0, isNight=false, dayBright=null, lightOff=0;
 function mins(hm){ var p=String(hm||'0:0').split(':'); return (+p[0])*60+(+p[1]||0); }
 function inNight(){ var n=CFG.night; if(!n||!n.on) return false;
   var d=new Date(), m=d.getHours()*60+d.getMinutes(), f=mins(n.from), t=mins(n.to);
   return f<=t ? (m>=f && m<t) : (m>=f || m<t); }
+/* daytime brightness, remembered so a restart during the night still restores it in the morning */
+function dayLevel(b){ try{ if(b>1) localStorage.setItem('af_daybright',b); else b=+localStorage.getItem('af_daybright')||b; }catch(x){} return b; }
 function nightCheck(){
   var want=inNight() && Date.now()>wakeUntil;
+  if(want && isNight && Date.now()-lightOff>5*60*1000){ lightOff=Date.now(); ctl('a=light&v=0'); }   // keep it off
   if(want===isNight) return; isNight=want;
   $('night').classList.toggle('on', want);
-  if(want){ ctl('a=status',function(r){ dayBright=r.bright; ctl('a=bright&v=1'); }); clearInterval(timer); }
-  else { if(dayBright!==null) ctl('a=bright&v='+dayBright); restart(); }
+  if(want){ lightOff=Date.now(); ctl('a=status',function(r){ dayBright=dayLevel(r.bright); ctl('a=bright&v=1',function(){ ctl('a=light&v=0'); }); }); clearInterval(timer); }
+  else { ctl('a=light&v=1',function(){ if(dayBright!==null) ctl('a=bright&v='+dayBright); }); restart(); }
 }
 
 /* start: load saved settings, then the photo list; reload the page if settings change (e.g. edited from a phone) */

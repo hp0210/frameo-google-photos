@@ -2,7 +2,7 @@
 # AlbumFrame control endpoint.
 #   from the frame itself (127.0.0.1): everything
 #   from other devices on the LAN:     getcfg, setcfg, sync, status, log only (no power / screen actions)
-# /cgi-bin/ctl?a=reboot|off|wifi|settings|bright&v=0..255|status|getcfg|setcfg(POST json)|sync|log
+# /cgi-bin/ctl?a=reboot|off|wifi|settings|bright&v=0..255|light&v=0|1|status|getcfg|setcfg(POST json)|sync|log
 D=/data/albumframe
 CFG=$D/config.json
 BB=/system/bin/busybox
@@ -33,6 +33,20 @@ case "$a" in
   bright)   local_only
             [ -n "$v" ] && [ "$v" -le 255 ] && { settings put system screen_brightness_mode 0; settings put system screen_brightness "$v"; }
             echo "{\"ok\":true,\"v\":$(settings get system screen_brightness)}" ;;
+  light)    # night mode: v=0 switches the backlight fully off (Android's lowest brightness still glows), v=1 back on
+            local_only
+            B=$(ls -d /sys/class/backlight/* 2>/dev/null | head -1)
+            if [ -z "$B" ]; then echo '{"ok":false,"err":"no backlight control"}'
+            elif [ "$v" = 0 ]; then
+              cur=$(cat $B/brightness); [ "$cur" -gt 0 ] && echo "$cur" > $D/tmp/backlight
+              # after the brightness change night mode just asked Android for, so Android doesn't turn it back on
+              ($BB setsid sh -c "sleep 2; echo 0 > $B/brightness" >/dev/null 2>&1 < /dev/null &)
+              echo '{"ok":true}'
+            else
+              old=$(cat $D/tmp/backlight 2>/dev/null); [ -n "$old" ] && [ "$old" -gt 0 ] || old=$(settings get system screen_brightness)
+              [ "$(cat $B/brightness)" = 0 ] && echo "$old" > $B/brightness
+              echo '{"ok":true}'
+            fi ;;
   getcfg)   if [ -s $CFG ]; then cat $CFG; else echo '{}'; fi ;;
   setcfg)   # body = JSON settings from settings.html (max 64 KB)
             n=${CONTENT_LENGTH:-0}
