@@ -2,7 +2,7 @@
 # AlbumFrame control endpoint.
 #   from the frame itself (127.0.0.1): everything
 #   from other devices on the LAN:     getcfg, setcfg, sync, status, log only (no power / screen actions)
-# /cgi-bin/ctl?a=reboot|off|wifi|settings|bright&v=0..255|light&v=0|1|status|getcfg|setcfg(POST json)|sync|log
+# /cgi-bin/ctl?a=reboot|off|wifi|settings|bright&v=0..255|bl&v=N|light&v=0|1|status|getcfg|setcfg(POST json)|sync|log
 D=/data/albumframe
 CFG=$D/config.json
 BB=/system/bin/busybox
@@ -16,6 +16,13 @@ for kv in $(echo "$q" | tr '&' ' '); do
   case "$kv" in a=*) a="${kv#a=}" ;; v=*) v="${kv#v=}" ;; esac
 done
 case "$v" in *[!0-9]*) v="" ;; esac
+# fast path for the brightness slider while dragging: set the backlight directly (Android's "settings" takes ~0.7 s)
+if [ "$a" = bl ]; then
+  case "$REMOTE_ADDR" in 127.0.0.1|::1|::ffff:127.0.0.1) ;; *) echo '{"ok":false}'; exit 0 ;; esac
+  B=$(ls -d /sys/class/backlight/* 2>/dev/null | head -1)
+  [ -n "$B" ] && [ -n "$v" ] && { [ "$v" -lt 20 ] && v=20; [ "$v" -gt 255 ] && v=255; echo "$v" > $B/brightness; }   # Android's floor is 20
+  echo '{"ok":true}'; exit 0
+fi
 LOG=$D/ctl.log
 [ -f $LOG ] && [ $($BB wc -c < $LOG) -gt 100000 ] && mv $LOG $LOG.1
 echo "$(date '+%F %T') ${REMOTE_ADDR:-?} $a $v" >> $LOG

@@ -336,7 +336,14 @@ document.addEventListener('click', function(e){
   if(e.target.closest('#menu')||e.target.closest('#confirm')){ bumpMenu(); return; }
   if($('menu').classList.contains('open')) closeMenu(); else openMenu();
 });
-$('br').addEventListener('input', function(){ bumpMenu(); ctl('a=bright&v='+this.value); });
+/* brightness slider: while dragging, set the backlight directly with at most one request in flight (always the
+   latest position); when it stops moving, save the level to Android once (slow, ~0.7 s on the frame) */
+var brBusy=false, brWant=null, brSave=null;
+function brSend(){ if(brBusy||brWant===null) return; var v=brWant; brWant=null; brBusy=true;
+  var done=function(){ clearTimeout(t); if(brBusy){ brBusy=false; brSend(); } }, t=setTimeout(done,1500);   // don't get stuck if a request fails
+  ctl('a=bl&v='+v, done); }
+$('br').addEventListener('input', function(){ bumpMenu(); brWant=this.value; brSend();
+  clearTimeout(brSave); var v=this.value; brSave=setTimeout(function(){ ctl('a=bright&v='+v); }, 700); });
 
 function act(a){
   bumpMenu();
