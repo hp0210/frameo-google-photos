@@ -11,7 +11,7 @@ Other Frameo frames with the same insides (Android 8.1, `armeabi-v7a`, preinstal
 
 - Slideshow of one or more Google Photos **shared album links**. Photos load on demand, nothing is stored on the frame.
 - Landscape photos fill the screen. **Portrait photos are shown two side by side**, picked from around the same day.
-- Slow zoom-in effect, cross-fade, shuffle, the date each photo was taken ("3 years ago today").
+- Slow zoom-in effect, cross-fade, shuffle, the date each photo was taken ("3 years ago today"), and optionally the camera and lens.
 - Clock and local weather (Open‑Meteo, no account or API key).
 - **Videos** show with a ▶ button and play (muted) when tapped.
 - **Tap the screen** for a menu: brightness, previous/next, Wi‑Fi, Frame settings, Restart, Turn off.

@@ -2,10 +2,20 @@
 # AlbumFrame control endpoint.
 #   from the frame itself (127.0.0.1): everything
 #   from other devices on the LAN:     getcfg, setcfg, sync, status, log only (no power / screen actions)
-# /cgi-bin/ctl?a=reboot|off|wifi|settings|bright&v=0..255|bl&v=N|light&v=0|1|status|getcfg|setcfg(POST json)|sync|log
+# /cgi-bin/ctl?a=reboot|off|wifi|settings|bright&v=0..255|bl&v=N|light&v=0|1|status|getcfg|setcfg(POST json)|sync|log|exif&id=<photo id>
 D=/data/albumframe
 CFG=$D/config.json
 BB=/system/bin/busybox
+# camera info: the first 64 KB of a photo's original file (holds the EXIF), for index.html to read.
+# Google doesn't allow the page to fetch it directly (no CORS). Only Google Photos ids, only from the frame itself.
+case "$QUERY_STRING" in a=exif\&id=*)
+  id="${QUERY_STRING#a=exif&id=}"
+  case "$REMOTE_ADDR" in 127.0.0.1|::1|::ffff:127.0.0.1) ;; *) id="" ;; esac
+  case "$id" in ""|*[!A-Za-z0-9_-]*) echo "Status: 400 Bad Request"; echo; exit 0 ;; esac
+  echo "Content-Type: application/octet-stream"; echo "Cache-Control: max-age=86400"; echo
+  exec $D/curl -sS -L --cacert $D/cacert.pem --connect-timeout 15 --max-time 30 -r 0-65535 \
+    "https://lh3.googleusercontent.com/pw/$id=d" 2>/dev/null ;;
+esac
 echo "Content-Type: application/json"
 echo "Cache-Control: no-store"
 echo "Access-Control-Allow-Origin: *"

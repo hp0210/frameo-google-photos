@@ -19,6 +19,9 @@
 `www/cgi-bin/ctl` (`ctl.cgi`) is the small API used by the pages: `getcfg`, `setcfg` (POST), `status`, `sync`,
 `bright`, `reboot`, `off`, `wifi`, `settings`. Power and screen actions are refused unless the request comes from `127.0.0.1`.
 
+`exif&id=…` returns the first 64 KB of a photo's original file (`=d`), which holds its EXIF. Google sends no CORS headers,
+so the page can't fetch it itself. `index.html` reads the camera model and lens from it and caches the result in localStorage (`af_cam`).
+
 ## Reading a shared album (`sync.sh`)
 
 No Google account and no API. The script loads the public share page the way a browser does:

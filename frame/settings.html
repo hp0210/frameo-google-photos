@@ -77,6 +77,8 @@
   <section>
     <h2>On screen</h2>
     <div class="row"><label>Date the photo was taken</label><label class="sw"><input type="checkbox" id="photoDate"><span></span></label></div>
+    <div class="row"><label>Camera<small>From the photo's details, under the date. Not every photo has them.</small></label>
+      <select id="camera"><option value="off">Off</option><option value="camera">Camera</option><option value="lens">Camera and lens</option></select></div>
     <div class="row"><label>Clock</label><label class="sw"><input type="checkbox" id="clock"><span></span></label></div>
     <div class="row"><label>24-hour clock</label><label class="sw"><input type="checkbox" id="clock24"><span></span></label></div>
     <div class="row"><label>Weather</label><label class="sw"><input type="checkbox" id="wOn"><span></span></label></div>
@@ -124,7 +126,7 @@ function setSel(id,v){ var s=$(id), best=null; for(var i=0;i<s.options.length;i+
 
 function render(){
   $('albums').innerHTML=''; (C.albums.length?C.albums:['']).forEach(albumRow);
-  setSel('refreshMin',C.refreshMin); setSel('intervalSec',C.intervalSec); setSel('transitionSec',C.transitionSec);
+  setSel('refreshMin',C.refreshMin); setSel('intervalSec',C.intervalSec); setSel('transitionSec',C.transitionSec); setSel('camera',C.camera||'off');
   ['shuffle','kenburns','fill','pairPortraits','showVideos','photoDate','clock','clock24'].forEach(function(k){ $(k).checked=!!C[k]; });
   $('wOn').checked=!!C.weather.on; $('wName').textContent=C.weather.name||'(not set)'; setSel('wUnit',C.weather.unit||'c');
   $('nOn').checked=!!C.night.on; $('nFrom').value=C.night.from; $('nTo').value=C.night.to;
@@ -132,7 +134,7 @@ function render(){
 }
 function collect(){
   var a=[]; [].forEach.call($('albums').querySelectorAll('input'),function(i){ var v=i.value.trim(); if(v) a.push(v); });
-  C.albums=a; C.refreshMin=+$('refreshMin').value; C.intervalSec=+$('intervalSec').value; C.transitionSec=+$('transitionSec').value;
+  C.albums=a; C.refreshMin=+$('refreshMin').value; C.intervalSec=+$('intervalSec').value; C.transitionSec=+$('transitionSec').value; C.camera=$('camera').value;
   ['shuffle','kenburns','fill','pairPortraits','showVideos','photoDate','clock','clock24'].forEach(function(k){ C[k]=$(k).checked; });
   C.weather.on=$('wOn').checked; C.weather.unit=$('wUnit').value;
   C.night={on:$('nOn').checked, from:$('nFrom').value||'22:00', to:$('nTo').value||'07:00'};
