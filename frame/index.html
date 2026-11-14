@@ -264,10 +264,13 @@ function capDate(c, e){
 /* camera (and lens) from the original file's EXIF. Google sends no CORS headers, so ctl.cgi fetches the
    first 64 KB for us. Results are cached in memory and in localStorage ('' = no camera info in that photo). */
 var camInfo={}, camWait={}, camN=0;
-try{ camInfo=JSON.parse(localStorage.getItem('af_cam')||'{}')||{}; }catch(x){ camInfo={}; }
+try{ localStorage.removeItem('af_cam');   // old format without focal length
+  camInfo=JSON.parse(localStorage.getItem('af_cam2')||'{}')||{}; }catch(x){ camInfo={}; }
 function camSave(){ try{ var k=Object.keys(camInfo); if(k.length>4000) k.slice(0,k.length-3000).forEach(function(x){ delete camInfo[x]; });
-  localStorage.setItem('af_cam', JSON.stringify(camInfo)); }catch(x){} }
-function camText(v){ if(!v) return ''; var p=v.split('|'); return CFG.camera==='lens' && p[1] ? p[0]+' · '+p[1] : p[0]; }
+  localStorage.setItem('af_cam2', JSON.stringify(camInfo)); }catch(x){} }
+// cached as "camera|full lens|focal length"; CFG.camera: 'camera' | 'focal' | 'lens'
+function camText(v){ if(!v) return ''; var p=v.split('|'), x=CFG.camera==='lens'?p[1]:CFG.camera==='focal'?p[2]:'';
+  return x ? p[0]+' · '+x : p[0]; }
 function camLine(c, e){
   if(CFG.camera==='off' || isVid(e)) return;
   var k=key(e);
@@ -282,7 +285,7 @@ function camFetch(e, cb){
   if(camWait[k]){ if(cb) camWait[k].push(cb); return; }
   camWait[k]=cb?[cb]:[];
   var x=new XMLHttpRequest(); x.open('GET','/cgi-bin/ctl?a=exif&id='+id); x.responseType='arraybuffer'; x.timeout=30000;
-  var fin=function(ok){ var r=null; if(ok){ try{ r=exifInfo(x.response); }catch(er){} camInfo[k]=r?r.cam+(r.lens?'|'+r.lens:''):''; if(++camN%10===0) camSave(); }
+  var fin=function(ok){ var r=null; if(ok){ try{ r=exifInfo(x.response); }catch(er){} camInfo[k]=r?r.cam+'|'+r.lens+'|'+r.focal:''; if(++camN%5===0) camSave(); }
     var l=camWait[k]; delete camWait[k]; if(ok) l.forEach(function(f){ f(); }); };
   x.onload=function(){ fin(x.status===200 || x.status===206); }; x.onerror=x.ontimeout=function(){ fin(false); };
   x.send();
@@ -323,7 +326,9 @@ function exifInfo(buf){
   if(/^(-+|0+|unknown)$/i.test(lens)) lens='';
   var fa=(f?Math.round(f)+'mm':'')+(a?(f?' ':'')+'f/'+(Math.round(a*10)/10):'');
   if(!lens) lens=fa; else if(!/f\/?\d/i.test(lens) && fa && /\d\s?-\s?\d|zoom/i.test(lens)) lens+=' @ '+fa;
-  return {cam:cam, lens:lens};
+  // focal length alone; phones (small sensor) use the 35 mm equivalent, as phone camera apps do
+  var f35=ex[0xA405], focal=f?Math.round(f35 && f35>f*1.5 ? f35 : f)+'mm':'';
+  return {cam:cam, lens:lens, focal:focal};
 }
 /* weather: Open-Meteo, no API key */
 var WMO={0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',56:'🌧️',57:'🌧️',61:'🌦️',63:'🌧️',65:'🌧️',
