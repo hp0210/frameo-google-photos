@@ -42,6 +42,12 @@
   #vwrap video{width:100%;height:100%;object-fit:contain;background:#000}
   #vwrap .hint{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#fff;opacity:.6;font-size:16px}
   #vwrap .load{position:absolute;color:#aaa;font-size:22px}
+  /* after a video ends: replay button + countdown to the next photo */
+  #replay{position:absolute;left:50%;top:50%;width:132px;height:132px;margin:-66px 0 0 -66px;z-index:2;border-radius:50%;
+          background:rgba(0,0,0,.45);border:4px solid rgba(255,255,255,.9);display:none;align-items:center;justify-content:center;
+          box-shadow:0 4px 24px rgba(0,0,0,.4)}
+  #replay.on{display:flex}
+  #replay:active{background:rgba(0,0,0,.7)}
   /* Ken Burns: slow zoom + drift on the photo layer */
   .fg.kb{animation-name:kb;animation-timing-function:linear;animation-fill-mode:both}
   @keyframes kb{from{transform:scale(var(--s0)) translate(var(--x0),var(--y0))}
@@ -84,6 +90,7 @@
 <div id="cap"></div><div id="cap2"></div>
 <div id="play"><svg width="56" height="56" viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z" fill="#fff"/></svg><div class="len"></div></div>
 <div id="vwrap"><div class="load">Loading video…</div>
+  <div id="replay"><svg width="64" height="64" viewBox="0 0 24 24"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" fill="#fff"/></svg></div>
   <div class="hint">Tap to stop</div></div>
 
 <div id="menu">
@@ -306,6 +313,7 @@ function playVideo(e){
 }
 function tryVideo(e, q, i){
   if(!playing) return;
+  endWait(); $('replay').classList.remove('on'); $('vwrap').querySelector('.hint').textContent='Tap to stop';
   if(i>=q.length){ dbg('video gave up'); stopVideo(true); return; }
   var old=$('vid'); if(old){ old.pause(); old.removeAttribute('src'); old.load(); old.parentNode.removeChild(old); }
   var v=document.createElement('video'); v.id='vid';
@@ -313,16 +321,26 @@ function tryVideo(e, q, i){
   v.setAttribute('muted',''); v.setAttribute('autoplay',''); v.setAttribute('playsinline','');
   v.poster=U(e);
   v.onplaying=function(){ clearTimeout(vwd); $('vwrap').querySelector('.load').style.display='none'; };
-  v.onended=function(){ stopVideo(true); };
+  v.onended=function(){ videoEnded(e, q, i); };
   v.onerror=function(){ dbg('error '+(v.error&&v.error.code)+' '+q[i]); clearTimeout(vwd); tryVideo(e, q, i+1); };
   v.src=e[0]+q[i];
   $('vwrap').insertBefore(v, $('vwrap').querySelector('.hint'));
   clearTimeout(vwd);
   vwd=setTimeout(function(){ if(playing && v.currentTime===0){ dbg('stalled rs='+v.readyState+' ns='+v.networkState+' '+q[i]); tryVideo(e, q, i+1); } }, 12000);
 }
-var vwd=null;
+var vwd=null, endT=null, endTick=null;
+/* video finished: keep its last frame with a replay button; move on after 10 s if nobody taps */
+function videoEnded(e, q, i){
+  var left=10, hint=$('vwrap').querySelector('.hint');
+  $('replay').classList.add('on'); $('replay').onclick=function(ev){ ev.stopPropagation(); tryVideo(e, q, i); };
+  var show=function(){ hint.textContent='Tap \u21BB to replay \u00B7 next photo in '+left+' s \u00B7 tap elsewhere to stop'; };
+  show(); endWait();
+  endTick=setInterval(function(){ if(--left>0) show(); }, 1000);
+  endT=setTimeout(function(){ stopVideo(true); }, 10000);
+}
+function endWait(){ clearTimeout(endT); clearInterval(endTick); }
 function stopVideo(advance){
-  clearTimeout(vwd); var v=$('vid');
+  clearTimeout(vwd); endWait(); $('replay').classList.remove('on'); $('vwrap').querySelector('.hint').textContent='Tap to stop'; var v=$('vid');
   if(v){ v.pause(); v.removeAttribute('src'); v.load(); v.parentNode.removeChild(v); }
   $('vwrap').classList.remove('on'); playing=false;
   if(advance) next(); else { restart(); if(isVid(shown)) $('play').classList.add('on'); }
