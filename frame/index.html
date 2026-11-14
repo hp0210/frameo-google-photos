@@ -211,16 +211,19 @@ function show(){
   $('msg').style.display='none';
   if(pos>=order.length) reorder();
   var e=order[pos++], items=[e];
-  if(CFG.pair && pairable(e)){
-    // partner: the upcoming portrait taken closest in time (same day/event looks best together)
-    var best=-1, bd=Infinity;
-    for(var j=pos;j<order.length && j<pos+300;j++) if(pairable(order[j])){
-      var d=Math.abs((order[j][1]||0)-(e[1]||0)); if(d<bd){ bd=d; best=j; } }
-    if(best>=0){ var p=order.splice(best,1)[0]; items=(p[1]||0)<(e[1]||0)?[p,e]:[e,p]; }   // older on the left
-  }
+  var best=partner(e, pos);
+  if(best>=0){ var p=order.splice(best,1)[0]; items=(p[1]||0)<(e[1]||0)?[p,e]:[e,p]; }   // older on the left
   hist.push(items); if(hist.length>50) hist.shift();
   items.forEach(function(x){ seen[key(x)]=1; }); if(++seenN%10===0) saveSeen();
   display(items); preload();
+}
+/* partner for a portrait: the upcoming portrait taken closest in time (same day/event looks best together); -1 = none */
+function partner(e, from){
+  if(!CFG.pair || !pairable(e)) return -1;
+  var best=-1, bd=Infinity;
+  for(var j=from;j<order.length && j<from+300;j++) if(pairable(order[j])){
+    var d=Math.abs((order[j][1]||0)-(e[1]||0)); if(d<bd){ bd=d; best=j; } }
+  return best;
 }
 function rnd(a,b){ return a+Math.random()*(b-a); }
 function kenburns(fg, filled){
@@ -354,7 +357,11 @@ function prev(){ if(hist.length<2) return; hist.pop(); display(hist[hist.length-
 function next(){ show(); restart(); }
 function restart(){ clearInterval(timer); timer=setInterval(show, CFG.interval); }
 var pre=[];
-function preload(){ pre=[]; for(var k=0;k<CFG.preload && pos+k<order.length;k++){ var p=new Image(); p.src=U(order[pos+k]); pre.push(p); camFetch(order[pos+k]); } }
+// the next few photos (and the next slide's portrait partner, picked the same way show() will): image + camera info
+function preload(){ pre=[]; var l=[], k, b;
+  for(k=0;k<CFG.preload && pos+k<order.length;k++) l.push(order[pos+k]);
+  if(pos<order.length && (b=partner(order[pos], pos+1))>=CFG.preload+pos) l.splice(1,0,order[b]);
+  l.forEach(function(e){ var p=new Image(); p.src=U(e); pre.push(p); camFetch(e); }); }
 
 function tick(){
   var c=$('clock'); nightCheck(); if(!CFG.clock) return;
