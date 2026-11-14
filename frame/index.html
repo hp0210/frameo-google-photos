@@ -264,12 +264,13 @@ function capDate(c, e){
 /* camera (and lens) from the original file's EXIF. Google sends no CORS headers, so ctl.cgi fetches the
    first 64 KB for us. Results are cached in memory and in localStorage ('' = no camera info in that photo). */
 var camInfo={}, camWait={}, camN=0;
-try{ localStorage.removeItem('af_cam');   // old format without focal length
-  camInfo=JSON.parse(localStorage.getItem('af_cam2')||'{}')||{}; }catch(x){ camInfo={}; }
+try{ localStorage.removeItem('af_cam'); localStorage.removeItem('af_cam2');   // older formats
+  camInfo=JSON.parse(localStorage.getItem('af_cam3')||'{}')||{}; }catch(x){ camInfo={}; }
 function camSave(){ try{ var k=Object.keys(camInfo); if(k.length>4000) k.slice(0,k.length-3000).forEach(function(x){ delete camInfo[x]; });
-  localStorage.setItem('af_cam2', JSON.stringify(camInfo)); }catch(x){} }
-// cached as "camera|full lens|focal length"; CFG.camera: 'camera' | 'focal' | 'lens'
-function camText(v){ if(!v) return ''; var p=v.split('|'), x=CFG.camera==='lens'?p[1]:CFG.camera==='focal'?p[2]:'';
+  localStorage.setItem('af_cam3', JSON.stringify(camInfo)); }catch(x){} }
+// cached as "camera|full lens|focal length + f-stop"; CFG.camera: 'camera' | 'focal' | 'lens'
+function camText(v){ if(!v) return '';   // lens names can contain '|' (Sigma "… | Art 024")
+  var p=v.split('|'), l=p.slice(1,-1).join('|').replace(/\s*\|\s*/g,' '), x=CFG.camera==='lens'?l:CFG.camera==='focal'?p[p.length-1]:'';
   return x ? p[0]+' · '+x : p[0]; }
 function camLine(c, e){
   if(CFG.camera==='off' || isVid(e)) return;
@@ -326,8 +327,9 @@ function exifInfo(buf){
   if(/^(-+|0+|unknown)$/i.test(lens)) lens='';
   var fa=(f?Math.round(f)+'mm':'')+(a?(f?' ':'')+'f/'+(Math.round(a*10)/10):'');
   if(!lens) lens=fa; else if(!/f\/?\d/i.test(lens) && fa && /\d\s?-\s?\d|zoom/i.test(lens)) lens+=' @ '+fa;
-  // focal length alone; phones (small sensor) use the 35 mm equivalent, as phone camera apps do
-  var f35=ex[0xA405], focal=f?Math.round(f35 && f35>f*1.5 ? f35 : f)+'mm':'';
+  // focal length + f-stop used; phones (small sensor) use the 35 mm equivalent focal length, as phone camera apps do
+  var f35=ex[0xA405], fl=f?Math.round(f35 && f35>f*1.5 ? f35 : f)+'mm':'';
+  var focal=fl+(a?(fl?' ':'')+'f/'+(Math.round(a*10)/10):'');
   return {cam:cam, lens:lens, focal:focal};
 }
 /* weather: Open-Meteo, no API key */

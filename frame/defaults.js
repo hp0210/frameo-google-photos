@@ -10,7 +10,7 @@ window.DEFAULTS = {
   pairPortraits: true,        // two portrait photos side by side
   transitionSec: 1.5,         // cross-fade length
   photoDate: true,            // "taken on" label
-  camera: 'off',              // camera from the photo's EXIF under the date: 'off' | 'camera' | 'focal' (+ focal length) | 'lens' (+ full lens)
+  camera: 'off',              // camera from the photo's EXIF under the date: 'off' | 'camera' | 'focal' (+ focal length and f-stop) | 'lens' (+ full lens)
   clock: true,
   clock24: false,
   weather: { on: true, name: '', lat: null, lon: null, tz: 'auto', unit: 'c' },   // pick the location in Frame settings
